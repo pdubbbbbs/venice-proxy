@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 [![GitHub issues](https://img.shields.io/github/issues/pdubbbbbs/personal-claude-router)](https://github.com/pdubbbbbs/personal-claude-router/issues)
 
-A self-hosted proxy that automatically picks the right Claude model for every prompt. Runs on any Linux homelab node. Uses your Claude subscription — no API key required.
+Routes each Claude prompt to the cheapest model that can handle it — cuts token costs without changing how you work. Runs on any Linux homelab node. Works with your Claude subscription or an API key.
 
 ## Features
 
