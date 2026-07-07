@@ -5,16 +5,16 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 [![GitHub issues](https://img.shields.io/github/issues/pdubbbbbs/personal-claude-router)](https://github.com/pdubbbbbs/personal-claude-router/issues)
 
-Routes each Claude prompt to the cheapest model that can handle it — cuts token costs without changing how you work. Runs on any Linux homelab node. Works with your Claude subscription or an API key.
+Routes each Claude prompt to the cheapest model that can handle it — cuts token costs without changing how you work. Runs on any machine with Python: a VPS, a local server, a Raspberry Pi, a cloud instance, or your own laptop.
 
 ## Features
 
-- **Automatic model selection** — picks Sonnet or Opus based on prompt content, you never have to choose
+- **Automatic model selection** — picks Sonnet or Opus based on prompt content; you never have to choose
 - **Per-conversation model lock** — tag a message with `%o`, `%s`, or `%f` to lock the model for the rest of the conversation
 - **Flexible auth** — works with a Claude subscription (no API key) or a standard Anthropic API key
 - **End-of-turn feedback** — optional hook shows which model answered and how to switch
 - **Session reset** — optional hook resets to Sonnet default at the start of each new session
-- **Always-on** — runs as a systemd service, restarts automatically on failure or reboot
+- **Lightweight** — three Python dependencies, no database, no Docker required
 
 ## How it works
 
@@ -41,31 +41,28 @@ Start a message with a tag to lock the model for the rest of that conversation:
 ## Prerequisites
 
 **Required:**
-- Linux homelab node (x86_64 or arm64)
-- Python 3.10+
+- Any machine running Python 3.10+ (Linux, macOS, or WSL)
 - Claude Pro or Max subscription **or** an Anthropic API key
 - Claude Code installed on your client machine
 
-**Optional:**
-- systemd (for always-on service)
-
 ## Installation
 
-**1. Clone the repo on your homelab node**
+**1. Clone and install**
 
 ```bash
 git clone https://github.com/pdubbbbbs/personal-claude-router.git
 cd personal-claude-router
-```
-
-**2. Create a virtual environment and install dependencies**
-
-```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-**3. Install as a systemd service**
+**2. Run**
+
+```bash
+UPSTREAM=https://api.anthropic.com .venv/bin/uvicorn router.app:app --host 0.0.0.0 --port 4000
+```
+
+**Keep it running with systemd (Linux):**
 
 ```bash
 sed -i "s/YOUR_USER/$USER/g" systemd/personal-claude-router.service
@@ -74,30 +71,32 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now personal-claude-router
 ```
 
-**4. Verify it is running**
+**Keep it running on macOS:** use `launchd`, `screen`, or `tmux`.
+
+**3. Verify**
 
 ```bash
 curl http://localhost:4000/health
 # {"status":"ok","upstream":"https://api.anthropic.com"}
 ```
 
-**5. Point your Claude client at the router**
+**4. Point your Claude client at it**
 
 Add to `~/.claude/settings.json` on your client machine:
 
 ```json
 "env": {
-  "ANTHROPIC_BASE_URL": "http://<your-node-ip>:4000"
+  "ANTHROPIC_BASE_URL": "http://<router-host>:4000"
 }
 ```
 
-**With a Claude subscription (no API key):** your subscription token passes through automatically — nothing else needed.
+**With a Claude subscription:** your token passes through automatically — nothing else needed.
 
-**With an Anthropic API key:** also set `ANTHROPIC_API_KEY` in the same `env` block and the router will forward it.
+**With an Anthropic API key:** also add `"ANTHROPIC_API_KEY": "sk-ant-..."` to the same `env` block.
 
 ## Optional: end-of-turn model footer
 
-After each answer, display which model was used and how to switch. Add to `~/.claude/settings.json`:
+After each answer, display which model was used. Add to `~/.claude/settings.json`:
 
 ```json
 "Stop": [{
@@ -111,7 +110,7 @@ After each answer, display which model was used and how to switch. Add to `~/.cl
 
 Copy `hooks/model-footer.sh` from this repo to `~/.claude/hooks/model-footer.sh`.
 
-Result:
+Result after each response:
 
 ```
 🧭 Sonnet 4.6 (auto-picked). Start next message with %s / %o / %f to switch — %a for auto.
@@ -119,13 +118,11 @@ Result:
 
 ## Optional: reset to Sonnet at session start
 
-Add to the `SessionStart` hooks in `~/.claude/settings.json`:
-
 ```json
 "SessionStart": [{
   "hooks": [{
     "type": "command",
-    "command": "curl -s -m 3 -X POST http://<your-node-ip>:4000/reset",
+    "command": "curl -s -m 3 -X POST http://<router-host>:4000/reset",
     "timeout": 6
   }]
 }]
